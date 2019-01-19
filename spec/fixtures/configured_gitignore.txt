@@ -1,0 +1,9 @@
+some_file.txt
+
+### GCP ENCRYPT BEGIN
+test1.txt
+test2.txt
+test3.txt
+### GCP ENCRYPT END
+
+another_file.txt

@@ -1,0 +1,65 @@
+#!/usr/bin/env ruby
+
+require_relative '../lib/gcp_encrypt'
+
+basename = File.basename(__FILE__)
+
+usage = <<END
+Usage: #{basename} <command> [option]
+
+Commands:
+  init              # Initialize repository
+  git-config        # Configure git repository (remove and ignore unencrypted files)
+  encrypt           # Encrypt files
+  decrypt           # Decrypt files
+  version           # Application version
+
+Options:
+  -h                # Usage help
+
+END
+
+encrypt_usage = <<END
+Usage: #{basename} encrypt [-h] [file] [file]
+
+Options:
+  file              # Specify a file to encrypt
+  -h                # Usage help
+END
+
+decrypt_usage = <<END
+Usage: #{basename} decrypt [-h] [file] [file]
+
+Options:
+  file              # Specify a file to decrypt
+  -h                # Usage help
+END
+
+commands = %q(init git-config encrypt decrypt version)
+
+gcp_encrypt = GcpEncrypt.new
+if ARGV.size > 0 && commands.include?(ARGV[0])
+  if ARGV[1] == '-h'
+    if ARGV[0] == 'encrypt'
+      puts encrypt_usage
+    elsif ARGV[0] == 'decrypt'
+      puts decrypt_usage
+    else
+      puts usage
+    end
+  else
+    case ARGV[0]
+    when 'init'
+      gcp_encrypt.init
+    when 'git-config'
+      gcp_encrypt.git_config
+    when 'version'
+      puts "#{basename} v#{GcpEncrypt::VERSION}"
+    end
+  end
+else
+  puts usage
+end
+
+
+
