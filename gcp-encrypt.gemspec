@@ -35,9 +35,11 @@ Gem::Specification.new do |spec|
     LICENSE.txt
     README.md
     Rakefile
-    exec/gcp_encrypt
+    exe/gcp-encrypt
     gcp-encrypt.gemspec
-    lib/gcp_encrypt
+    lib/gcp_encrypt.rb
+    lib/gcp_encrypt/version.rb
+    template/config.yml
   )
   spec.bindir        = 'exe'
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }

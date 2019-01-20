@@ -4,12 +4,9 @@ require 'yaml'
 require_relative 'gcp_encrypt/version'
 
 class GcpEncrypt
-  class AlreadyInitialized < StandardError;
-  end
-  class ConfigurationFileNotFound < StandardError;
-  end
-  class GitNotFound < StandardError;
-  end
+  class AlreadyInitialized < StandardError; end
+  class ConfigurationFileNotFound < StandardError; end
+  class GitNotFound < StandardError; end
 
   CONFIG_FILE = '.gcp-encrypt.yml'
   GIT_IGNORE_START = "### GCP ENCRYPT BEGIN"
@@ -34,6 +31,32 @@ class GcpEncrypt
     update_gitignore
   end
 
+  def encrypt(*passed_in)
+    if passed_in.size > 0
+      passed_in.each do |file|
+        next unless files.include?(file)
+        encrypt_file(file)
+      end
+    else
+      files.each do |file|
+        encrypt_file(file)
+      end
+    end
+  end
+
+  def decrypt(*passed_in)
+    if passed_in.size > 0
+      passed_in.each do |file|
+        next unless files.include?(file)
+        decrypt_file(file)
+      end
+    else
+      files.each do |file|
+        decrypt_file(file)
+      end
+    end
+  end
+
   def config
     @config ||= load_configurations
   end
@@ -43,6 +66,39 @@ class GcpEncrypt
   end
 
   private
+
+  def encrypt_file(file)
+    if File.exists?(file)
+      command = [
+        'gcloud kms encrypt',
+        "--project=#{config['settings']['project']}",
+        "--location=#{config['settings']['location']}",
+        "--keyring=#{config['settings']['keyring']}",
+        "--key=#{config['settings']['key']}",
+        "--plaintext-file=#{file}",
+        "--ciphertext-file=#{file}.encrypted",
+      ].join(' ')
+
+      system(command)
+    end
+  end
+
+  def decrypt_file(file)
+    encrypted_file = "#{file}.encrypted"
+    if File.exists?(encrypted_file)
+      command = [
+        'gcloud kms decrypt',
+        "--project=#{config['settings']['project']}",
+        "--location=#{config['settings']['location']}",
+        "--keyring=#{config['settings']['keyring']}",
+        "--key=#{config['settings']['key']}",
+        "--plaintext-file=#{file}",
+        "--ciphertext-file=#{encrypted_file}",
+      ].join(' ')
+
+      system(command)
+    end
+  end
 
   def template_config
     File.read(File.join(root_path, 'template', 'config.yml'))

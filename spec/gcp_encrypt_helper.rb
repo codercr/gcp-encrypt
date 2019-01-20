@@ -30,7 +30,7 @@ module GcpEncryptHelper
   end
 
   def self.generate_config(settings: {}, files: nil)
-    config = YAML.load(template_config)
+    config = YAML.safe_load(template_config)
     config['settings'] = DEFAULT_SETTINGS.merge(settings)
     config['files'] = files || DEFAULT_FILES
     config
@@ -55,5 +55,15 @@ module GcpEncryptHelper
     fixture = f.read
     f.close
     fixture
+  end
+
+  def self.create_test_files(*files)
+    if files.is_a?(Array)
+      files.each do |file|
+        f = File.open(file, 'w+')
+        f.write("test file #{file}")
+        f.close
+      end
+    end
   end
 end

@@ -45,6 +45,38 @@ RSpec.describe 'Exec gcp-encrypt' do
     end
   end
 
+  describe 'encrypt' do
+    it 'calls GcpEncrypt#encrypt' do
+      stub_const('ARGV', %w(encrypt))
+      expect_any_instance_of(GcpEncrypt).to receive(:encrypt)
+      subject
+    end
+
+    context 'when files are passed in' do
+      it 'calls GcpEncrypt#encrypt(*files)' do
+        stub_const('ARGV', %w(encrypt test1.txt test2.txt))
+        expect_any_instance_of(GcpEncrypt).to receive(:encrypt).with('test1.txt', 'test2.txt')
+        subject
+      end
+    end
+  end
+
+  describe 'decrypt' do
+    it 'calls GcpEncrypt#decrypt' do
+      stub_const('ARGV', %w(decrypt))
+      expect_any_instance_of(GcpEncrypt).to receive(:decrypt)
+      subject
+    end
+
+    context 'when files are passed in' do
+      it 'calls GcpEncrypt#decrypt(*files)' do
+        stub_const('ARGV', %w(decrypt test1.txt test2.txt))
+        expect_any_instance_of(GcpEncrypt).to receive(:decrypt).with('test1.txt', 'test2.txt')
+        subject
+      end
+    end
+  end
+
   describe 'version' do
     it 'return version' do
       stub_const('ARGV', %w(version))

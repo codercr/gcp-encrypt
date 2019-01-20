@@ -5,6 +5,7 @@ test_directory = File.join(working_directory, 'exe-tests')
 FileUtils.rm_rf(test_directory) if Dir.exists?(test_directory)
 
 RSpec.describe GcpEncrypt do
+  let(:gcp_encrypt) { described_class.new }
   let(:config_file) { File.join(Dir.pwd, '.gcp-encrypt.yml') }
 
   before do
@@ -22,7 +23,7 @@ RSpec.describe GcpEncrypt do
   end
 
   describe '#init' do
-    subject { described_class.new.init }
+    subject { gcp_encrypt.init }
 
     it 'creates configuration file' do
       stub_const('ARGV', %w(init))
@@ -41,8 +42,6 @@ RSpec.describe GcpEncrypt do
   describe '#git_config' do
     subject { gcp_encrypt.git_config }
 
-    let(:gcp_encrypt) { described_class.new }
-
     before do
       allow(gcp_encrypt).to receive(:system).and_return(true)
       GcpEncryptHelper.create_gitignore
@@ -59,7 +58,8 @@ RSpec.describe GcpEncrypt do
 
       it 'throws an exception if git is not found' do
         expect(gcp_encrypt).to receive(:system).with('which git').and_return(false)
-        expect { subject }.to raise_error(GcpEncrypt::GitNotFound, 'Could not find `git` executable')
+        expect { subject }.to raise_error(GcpEncrypt::GitNotFound,
+                                          'Could not find `git` executable')
       end
 
       it 'removes files from git' do
@@ -115,7 +115,8 @@ RSpec.describe GcpEncrypt do
         let(:files) { [] }
 
         it 'does not remove any files from git' do
-          allow(gcp_encrypt).to receive(:'`').with('git ls-files').and_return("test1.txt\ntest2.txt")
+          allow(gcp_encrypt).to receive(:'`').with('git ls-files').
+            and_return("test1.txt\ntest2.txt")
           expect(gcp_encrypt).not_to receive(:system).with('git rm --cached test1.txt')
           expect(gcp_encrypt).not_to receive(:system).with('git rm --cached test2.txt')
           subject
@@ -137,16 +138,252 @@ RSpec.describe GcpEncrypt do
   end
 
   describe '#encrypt' do
-    context 'when no files are passed in' do
-      it 'encrypts all files'
-    end
+    subject { gcp_encrypt.encrypt }
 
-    context 'when files are passed in' do
-      it 'encrypts only specified files'
-    end
+    include_examples 'requires configurations'
 
-    context 'when encrypted file is newer' do
-      it 'encrypts only specified files'
+    context 'with configurations' do
+      include_context 'with configuration file'
+
+      context 'when no files are passed in' do
+        it 'encrypts all files' do
+          GcpEncryptHelper.create_test_files(*files)
+
+          expect(gcp_encrypt).to receive(:system) do |arg|
+            expect(arg).to match(/\Agcloud kms encrypt/)
+            expect(arg).to match(/--project=test-project/)
+            expect(arg).to match(/--location=test-location/)
+            expect(arg).to match(/--keyring=test-keyring/)
+            expect(arg).to match(/--key=test-key/)
+            expect(arg).to match(/--plaintext-file=test1\.txt/)
+            expect(arg).to match(/--ciphertext-file=test1.txt\.encrypted/)
+          end
+
+          expect(gcp_encrypt).to receive(:system) do |arg|
+            expect(arg).to match(/\Agcloud kms encrypt/)
+            expect(arg).to match(/--project=test-project/)
+            expect(arg).to match(/--location=test-location/)
+            expect(arg).to match(/--keyring=test-keyring/)
+            expect(arg).to match(/--key=test-key/)
+            expect(arg).to match(/--plaintext-file=test2\.txt/)
+            expect(arg).to match(/--ciphertext-file=test2.txt\.encrypted/)
+          end
+
+          expect(gcp_encrypt).to receive(:system) do |arg|
+            expect(arg).to match(/\Agcloud kms encrypt/)
+            expect(arg).to match(/--project=test-project/)
+            expect(arg).to match(/--location=test-location/)
+            expect(arg).to match(/--keyring=test-keyring/)
+            expect(arg).to match(/--key=test-key/)
+            expect(arg).to match(/--plaintext-file=test3\.txt/)
+            expect(arg).to match(/--ciphertext-file=test3.txt\.encrypted/)
+          end
+
+          subject
+        end
+
+        context 'when source file is not preset' do
+          it 'gcloud encrypt command is not called' do
+            GcpEncryptHelper.create_test_files('test2.txt', 'test3.txt')
+
+            expect(gcp_encrypt).not_to receive(:system).with(/--plaintext-file=test1\.txt/)
+
+            expect(gcp_encrypt).to receive(:system) do |arg|
+              expect(arg).to match(/\Agcloud kms encrypt/)
+              expect(arg).to match(/--project=test-project/)
+              expect(arg).to match(/--location=test-location/)
+              expect(arg).to match(/--keyring=test-keyring/)
+              expect(arg).to match(/--key=test-key/)
+              expect(arg).to match(/--plaintext-file=test2.txt/)
+              expect(arg).to match(/--ciphertext-file=test2.txt.encrypted/)
+            end
+
+            expect(gcp_encrypt).to receive(:system) do |arg|
+              expect(arg).to match(/\Agcloud kms encrypt/)
+              expect(arg).to match(/--project=test-project/)
+              expect(arg).to match(/--location=test-location/)
+              expect(arg).to match(/--keyring=test-keyring/)
+              expect(arg).to match(/--key=test-key/)
+              expect(arg).to match(/--plaintext-file=test3.txt/)
+              expect(arg).to match(/--ciphertext-file=test3.txt.encrypted/)
+            end
+
+            subject
+          end
+        end
+
+        context 'when files are passed in' do
+          subject { gcp_encrypt.encrypt('test2.txt') }
+
+          it 'encrypts only specified files' do
+            GcpEncryptHelper.create_test_files('test2.txt')
+
+            expect(gcp_encrypt).not_to receive(:system).with(/--plaintext-file=test1\.txt/)
+
+            expect(gcp_encrypt).to receive(:system) do |arg|
+              expect(arg).to match(/\Agcloud kms encrypt/)
+              expect(arg).to match(/--project=test-project/)
+              expect(arg).to match(/--location=test-location/)
+              expect(arg).to match(/--keyring=test-keyring/)
+              expect(arg).to match(/--key=test-key/)
+              expect(arg).to match(/--plaintext-file=test2.txt/)
+              expect(arg).to match(/--ciphertext-file=test2.txt.encrypted/)
+            end
+
+            expect(gcp_encrypt).not_to receive(:system).with(/--plaintext-file=test3\.txt/)
+
+            subject
+          end
+
+          context 'when source file is not preset' do
+            it 'gcloud encrypt command is not called' do
+              expect(gcp_encrypt).not_to receive(:system).with(/--plaintext-file=test1\.txt/)
+              expect(gcp_encrypt).not_to receive(:system).with(/--plaintext-file=test2\.txt/)
+              expect(gcp_encrypt).not_to receive(:system).with(/--plaintext-file=test3\.txt/)
+
+              subject
+            end
+          end
+
+          context 'when passed in file is not in config' do
+            subject { gcp_encrypt.encrypt('test4.txt') }
+
+            it 'gcloud encrypt command is not called' do
+              GcpEncryptHelper.create_test_files('test4.txt')
+
+              expect(gcp_encrypt).not_to receive(:system).with(/--plaintext-file=test4\.txt/)
+
+              subject
+            end
+          end
+        end
+      end
+    end
+  end
+
+  describe '#decrypt' do
+    subject { gcp_encrypt.decrypt }
+
+    let(:encrypted_files) { files.map { |file| "#{file}.encrypted" } }
+
+    include_examples 'requires configurations'
+
+    context 'with configurations' do
+      include_context 'with configuration file'
+
+      context 'when no files are passed in' do
+        it 'decrypts all files' do
+          GcpEncryptHelper.create_test_files(*encrypted_files)
+
+          expect(gcp_encrypt).to receive(:system) do |arg|
+            expect(arg).to match(/\Agcloud kms decrypt/)
+            expect(arg).to match(/--project=test-project/)
+            expect(arg).to match(/--location=test-location/)
+            expect(arg).to match(/--keyring=test-keyring/)
+            expect(arg).to match(/--key=test-key/)
+            expect(arg).to match(/--plaintext-file=test1\.txt/)
+            expect(arg).to match(/--ciphertext-file=test1.txt\.encrypted/)
+          end
+
+          expect(gcp_encrypt).to receive(:system) do |arg|
+            expect(arg).to match(/\Agcloud kms decrypt/)
+            expect(arg).to match(/--project=test-project/)
+            expect(arg).to match(/--location=test-location/)
+            expect(arg).to match(/--keyring=test-keyring/)
+            expect(arg).to match(/--key=test-key/)
+            expect(arg).to match(/--plaintext-file=test2\.txt/)
+            expect(arg).to match(/--ciphertext-file=test2.txt\.encrypted/)
+          end
+
+          expect(gcp_encrypt).to receive(:system) do |arg|
+            expect(arg).to match(/\Agcloud kms decrypt/)
+            expect(arg).to match(/--project=test-project/)
+            expect(arg).to match(/--location=test-location/)
+            expect(arg).to match(/--keyring=test-keyring/)
+            expect(arg).to match(/--key=test-key/)
+            expect(arg).to match(/--plaintext-file=test3\.txt/)
+            expect(arg).to match(/--ciphertext-file=test3.txt\.encrypted/)
+          end
+
+          subject
+        end
+
+        context 'when source file is not preset' do
+          it 'gcloud decrypt command is not called' do
+            GcpEncryptHelper.create_test_files('test2.txt.encrypted', 'test3.txt.encrypted')
+
+            expect(gcp_encrypt).not_to receive(:system).with(/--plaintext-file=test1\.txt/)
+
+            expect(gcp_encrypt).to receive(:system) do |arg|
+              expect(arg).to match(/\Agcloud kms decrypt/)
+              expect(arg).to match(/--project=test-project/)
+              expect(arg).to match(/--location=test-location/)
+              expect(arg).to match(/--keyring=test-keyring/)
+              expect(arg).to match(/--key=test-key/)
+              expect(arg).to match(/--plaintext-file=test2.txt/)
+              expect(arg).to match(/--ciphertext-file=test2.txt.encrypted/)
+            end
+
+            expect(gcp_encrypt).to receive(:system) do |arg|
+              expect(arg).to match(/\Agcloud kms decrypt/)
+              expect(arg).to match(/--project=test-project/)
+              expect(arg).to match(/--location=test-location/)
+              expect(arg).to match(/--keyring=test-keyring/)
+              expect(arg).to match(/--key=test-key/)
+              expect(arg).to match(/--plaintext-file=test3.txt/)
+              expect(arg).to match(/--ciphertext-file=test3.txt.encrypted/)
+            end
+
+            subject
+          end
+        end
+
+        context 'when files are passed in' do
+          subject { gcp_encrypt.decrypt('test2.txt') }
+
+          it 'decrypts only specified files' do
+            GcpEncryptHelper.create_test_files('test2.txt.encrypted')
+
+            expect(gcp_encrypt).not_to receive(:system).with(/--plaintext-file=test1\.txt/)
+
+            expect(gcp_encrypt).to receive(:system) do |arg|
+              expect(arg).to match(/\Agcloud kms decrypt/)
+              expect(arg).to match(/--project=test-project/)
+              expect(arg).to match(/--location=test-location/)
+              expect(arg).to match(/--keyring=test-keyring/)
+              expect(arg).to match(/--key=test-key/)
+              expect(arg).to match(/--plaintext-file=test2.txt/)
+              expect(arg).to match(/--ciphertext-file=test2.txt.encrypted/)
+            end
+
+            expect(gcp_encrypt).not_to receive(:system).with(/--plaintext-file=test3\.txt/)
+
+            subject
+          end
+
+          context 'when source file is not preset' do
+            it 'gcloud decrypt command is not called' do
+              expect(gcp_encrypt).not_to receive(:system).with(/--plaintext-file=test1\.txt/)
+              expect(gcp_encrypt).not_to receive(:system).with(/--plaintext-file=test2\.txt/)
+              expect(gcp_encrypt).not_to receive(:system).with(/--plaintext-file=test3\.txt/)
+
+              subject
+            end
+          end
+
+          context 'when passed in file is not in config' do
+            subject { gcp_encrypt.decrypt('test4.txt') }
+
+            it 'gcloud decrypt command is not called' do
+              GcpEncryptHelper.create_test_files('test4.txt.encrypted')
+
+              expect(gcp_encrypt).not_to receive(:system).with(/--plaintext-file=test4\.txt/)
+
+              subject
+            end
+          end
+        end
+      end
     end
   end
 end

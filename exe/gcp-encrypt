@@ -53,6 +53,10 @@ if ARGV.size > 0 && commands.include?(ARGV[0])
       gcp_encrypt.init
     when 'git-config'
       gcp_encrypt.git_config
+    when 'encrypt'
+      gcp_encrypt.encrypt(*ARGV[1..-1])
+    when 'decrypt'
+      gcp_encrypt.decrypt(*ARGV[1..-1])
     when 'version'
       puts "#{basename} v#{GcpEncrypt::VERSION}"
     end
@@ -60,6 +64,3 @@ if ARGV.size > 0 && commands.include?(ARGV[0])
 else
   puts usage
 end
-
-
-
